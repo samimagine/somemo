@@ -98,7 +98,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </aside>
-                <main className="flex-1 bg-gray-100 p-8">
+                <main className="flex-1 bg-gray-100 p-8 overflow-auto">
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/profile" element={<User />} />
