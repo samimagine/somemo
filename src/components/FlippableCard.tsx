@@ -39,7 +39,6 @@ const FlippableCard: React.FC<FlippableCardProps> = ({
       onCheckChange(isChecked);
     }
   };
-
   return (
     <div
       className="relative cursor-pointer"
@@ -55,41 +54,43 @@ const FlippableCard: React.FC<FlippableCardProps> = ({
         }}
       >
         <Card
-          className="absolute inset-0 w-full h-full backface-hidden"
+          className="absolute inset-0 w-full h-full backface-hidden flex items-center justify-center"
           style={{ backfaceVisibility: "hidden" }}
         >
-          <CardHeader>
-            <CardTitle>{front}</CardTitle>
+          <CardHeader className="flex items-center justify-center h-full">
+            <CardTitle className="text-2xl text-center">{front}</CardTitle>
           </CardHeader>
           <CardFooter>
             <div
-              className={`absolute bottom-2 right-2 ${
+              className={`absolute bottom-2 right-2 text-2xl ${
                 isCheckedState ? "text-green-600" : "text-blue-600"
               }`}
-              style={{ fontSize: "1.5rem" }}
             >
               {isCheckedState ? <GrStatusGood /> : <TbHandFingerRight />}
             </div>
           </CardFooter>
         </Card>
         <Card
-          className="absolute inset-0 w-full h-full backface-hidden"
+          className="absolute inset-0 w-full h-full backface-hidden flex flex-col items-center justify-center"
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
           }}
         >
-          <CardContent>
-            <p className="font-semibold text-lg text-center">{back}</p>
+          <CardContent className="flex items-center justify-center text-2xl text-center h-full p-0">
+            {back}
           </CardContent>
           <CardFooter>
-            <Checkbox checked={isCheckedState} onCheckedChange={handleCheck} />
-            <span>Done!</span>
+            <div className="mt-1 flex items-center space-x-2">
+              <Checkbox
+                checked={isCheckedState}
+                onCheckedChange={handleCheck}
+                className="h-4 w-4"
+              />
+              <span>Done!</span>
+            </div>
             {isCheckedState && (
-              <div
-                className="absolute bottom-2 right-2 text-green-600"
-                style={{ fontSize: "1.5rem" }}
-              >
+              <div className="absolute bottom-2 right-2 text-green-600 text-2xl">
                 <GrStatusGood />
               </div>
             )}

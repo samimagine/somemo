@@ -7,79 +7,104 @@ import FlippableCard from "@/components/FlippableCard";
 
 const Memo: React.FC = () => {
   const [cards, setCards] = useState<
-    { front: string; back: string; isChecked?: boolean }[]
+    { id?: number; front: string; back: string; isChecked?: boolean }[]
   >([]);
   const [newCard, setNewCard] = useState({ front: "", back: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCards = () => {
-    try {
-      const savedCards = JSON.parse(
-        localStorage.getItem("rememberedCards") || "[]"
-      );
-      if (savedCards.length > 0) {
-        console.log("Loaded cards from localStorage:", savedCards);
-        setCards(savedCards);
-        setLoading(false);
-      } else {
-        console.log("No cards in localStorage. Fetching from backend...");
-        fetchCards();
+  const API_BASE = "https://somemo-backend.onrender.com/cards";
+
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("Token missing. Redirecting to login.");
+      alert("Please log in.");
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
+
+    console.log("Sending Token:", token);
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.error("401 Unauthorized. Redirecting to login.");
+        alert("Session expired. Please log in again.");
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        throw new Error("Unauthorized");
       }
+      const errorMsg = await response.text();
+      throw new Error(errorMsg || "Unknown error occurred");
+    }
+    return response.json();
+  };
+
+  const fetchCards = async () => {
+    setLoading(true);
+    try {
+      const data = await authFetch(`${API_BASE}/`);
+      setCards(data);
     } catch (err) {
-      console.error("Error reading from localStorage:", err);
-      fetchCards();
+      console.error("Error fetching cards:", err);
+      setError(err instanceof Error ? err.message : "Unknown error occurred.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchCards = () => {
-    fetch("https://somemo-backend.onrender.com/cards")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to fetch cards");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        const mergedCards = data.cards.map(
-          (card: { front: string; back: string }) => ({
-            ...card,
-            isChecked: false,
-          })
-        );
-        console.log("Fetched cards from backend:", mergedCards);
-        setCards(mergedCards);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching cards from backend:", err);
-        setError(err.message);
-        setLoading(false);
-      });
-  };
-
-  const addCard = (e: React.FormEvent) => {
+  const addCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    fetch("https://somemo-backend.onrender.com/cards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newCard),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to add card");
+
+    if (!newCard.front.trim() || !newCard.back.trim()) {
+      setError("Both the front and back fields are required.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      console.log("Adding card with data:", newCard);
+
+      const response = await fetch(
+        "https://somemo-backend.onrender.com/cards/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            front: newCard.front,
+            back: newCard.back,
+            isChecked: false,
+          }),
         }
-        return response.json();
-      })
-      .then((card) => {
-        const newCardWithState = { ...card, isChecked: false };
-        setCards((prevCards) => [...prevCards, newCardWithState]);
-        setNewCard({ front: "", back: "" });
-      })
-      .catch((err) => {
-        console.error("Error adding card:", err);
-        setError(err.message);
-      });
+      );
+
+      console.log("Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error("Failed to add card");
+      }
+
+      const card = await response.json();
+      console.log("Added card:", card);
+      setCards((prevCards) => [...prevCards, card]);
+      setNewCard({ front: "", back: "" });
+    } catch (err) {
+      console.error("Error adding card:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
   };
 
   const handleCheckChange = (index: number, isChecked: boolean) => {
@@ -88,19 +113,23 @@ const Memo: React.FC = () => {
     );
   };
 
-  const handleRemember = () => {
+  const handleRemember = async () => {
+    const checkedCards = cards.filter((card) => card.isChecked);
+
     try {
-      localStorage.setItem("rememberedCards", JSON.stringify(cards));
-      console.log("Saved cards to localStorage:", cards);
-      alert("Cards saved to localStorage!");
+      const data = await authFetch(`${API_BASE}/save-checked/`, {
+        method: "POST",
+        body: JSON.stringify(checkedCards),
+      });
+      alert(data.message || "Checked cards saved successfully!");
     } catch (err) {
-      console.error("Error saving to localStorage:", err);
-      alert("Failed to save cards to localStorage.");
+      console.error("Error saving checked cards:", err);
+      setError(err instanceof Error ? err.message : "Unknown error occurred.");
     }
   };
 
   useEffect(() => {
-    loadCards();
+    fetchCards();
   }, []);
 
   if (loading) {
@@ -123,20 +152,11 @@ const Memo: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {cards.map((card, index) => (
           <FlippableCard
-            key={index}
+            key={card.id || index}
             front={card.front}
             back={card.back}
             isChecked={card.isChecked}
-            onCheckChange={(isChecked) => {
-              handleCheckChange(index, isChecked);
-              const updatedCards = cards.map((c, i) =>
-                i === index ? { ...c, isChecked } : c
-              );
-              localStorage.setItem(
-                "rememberedCards",
-                JSON.stringify(updatedCards)
-              );
-            }}
+            onCheckChange={(isChecked) => handleCheckChange(index, isChecked)}
           />
         ))}
       </div>

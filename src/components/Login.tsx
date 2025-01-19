@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/authStore";
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -30,10 +28,10 @@ const Login: React.FC = () => {
       }
 
       const data = await response.json();
-      login(username, data.access_token);
+      localStorage.setItem("token", data.access_token);
       alert("Login successful!");
       navigate("/");
-    } catch (err: unknown) {
+    } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
